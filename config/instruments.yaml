@@ -1,0 +1,9 @@
+sentec_laser:
+  ip: "192.168.0.100"
+  port: 5000
+  dll_path: ""
+  address: ""
+  timeout: ""
+conexcc:
+  dll_path: ""
+  port: ""
