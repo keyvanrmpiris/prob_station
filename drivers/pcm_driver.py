@@ -1,28 +1,44 @@
 import sys
 import os
 import inspect
+import ctypes
 # Import the .NET Common Language Runtime (CLR) to allow interaction with .NET
 import clr
 import numpy as np
 import time # Added for potential use, though not strictly required
-
-from Newport.DeviceIOLib import *
-from NewFocus.PicomotorApp import CmdLib8742
+from pathlib import Path
 from System.Text import StringBuilder
 
+# 1. Setup Paths
+root_dir = Path(__file__).parent.parent.absolute()
+lib_path = root_dir / "libs"
+
+# Add to Python path so 'clr' can find the .NET DLLs
+if str(lib_path) not in sys.path:
+    sys.path.append(str(lib_path))
+
+# Add to DLL Search path so Windows can find the underlying USB C++ DLLs
+if os.path.exists(lib_path):
+    os.add_dll_directory(str(lib_path))
+
+# 2. Add References (DO NOT use ctypes.CDLL for these)
+try:
+    # clr.AddReference searches sys.path for the filename provided
+    clr.AddReference("DeviceIOLib")
+    clr.AddReference("CmdLib8742")
+    print("Assemblies loaded successfully!")
+    
+    # Now you can import the namespaces inside the DLLs
+    from Newport.DeviceIOLib import *
+    from NewFocus.PicomotorApp import CmdLib8742
+    print("Imports successful!")
+
+except Exception as e:
+    print(f"Failed to load assemblies: {e}")
+    # This often happens if UsbDllWrap.dll is missing from the libs folder
+
 class Pcm:
-    def __init__(self, dll_path, ):
-        self.dll_path = dll_path
-        # Initialize the DLL folder path to where the DLLs are located
-        strPathDllFolder = os.path.dirname (self.dll_path)
-        print ("Executing dll Dir  = %s\n" % strPathDllFolder)
-
-        # Add the DLL folder path to the system search path (before adding references)
-        sys.path.append (strPathDllFolder)
-
-        # Add a reference to each .NET assembly required
-        clr.AddReference ("DeviceIOLib")
-        clr.AddReference ("CmdLib8742")
+    def __init__(self):
         
 
         print ("Waiting for device discovery...")
@@ -89,7 +105,7 @@ class Pcm:
                     print (f"Fw Version = {strFwVersion}")
                     print (f"Fw Date = {strFwDate}\n")
 
-    def send_command(self, cmd):
+    def send_command(self, cmd=""):
 
         if (self.nDeviceCount > 0) :
             # --- Start main loop to accept user commands ---

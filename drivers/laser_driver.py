@@ -8,13 +8,15 @@ import os
 import sys
 import time
 import socket
+from .ftd2xxhelper import Ftd2xxhelper
+
 
 # LASER_IP = "192.168.0.100"
 # LASER_PORT = 5000   # <-- CORRECT PORT FOR TSL-570
 
 # --- LAN Instrument Helper Class ---
 class LanHelper:
-    def __init__(self, ip, port):
+    def __init__(self):
         self.ip = ip
         self.port = port
 
@@ -45,8 +47,35 @@ class LanHelper:
 
 # Instrument control class
 class Laser:
-    def __init__(self, ip, port):
-        self.instrument: LanHelper = LanHelper(ip, port)
+    def __init__(self):
+        self.list_devices = []
+        self.instrument = None
+        
+
+    def connect(self):
+        # 1. Detect the one laser which is connected
+        try:
+            print("Searching for devices...")
+            list_of_devices = Ftd2xxhelper.list_devices()
+
+            if len(list_of_devices) < 1:
+                print("No instruments found. Exiting.")
+                sys.exit()
+        
+            # Select the first detected device automatically
+            device = list_of_devices[0]
+            serial_number = device.SerialNumber.decode('utf-8')
+            description = device.Description.decode('utf-8')
+        
+            print(f"Found Device: {description} (Serial: {serial_number})")
+        
+            # Connect to the instrument
+            self.instrument = Ftd2xxhelper(serial_number.encode('utf-8'))
+            print("Connection successful.\n")
+
+        except Exception as e:
+            print(f"Error connecting to device: {e}")
+            sys.exit()
 
     def query_instrument(self):
         command = input("\nEnter the command to Query (eg. POW ?) ").strip()
@@ -90,7 +119,6 @@ class Laser:
         }
 
         while True:
-            os.system('cls')
             user_operation = input(
                 "\nInstrument Menu:-"
                 "\n1. Query Instrument"

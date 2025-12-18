@@ -26,6 +26,8 @@ def main():
             sys.exit()
        
         # Select the first detected device automatically
+        print("total devices found is:", len(list_of_devices))
+        print(list_of_devices)
         device = list_of_devices[0]
         serial_number = device.SerialNumber.decode('utf-8')
         description = device.Description.decode('utf-8')
