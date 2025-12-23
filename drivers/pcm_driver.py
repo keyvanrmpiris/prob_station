@@ -105,71 +105,101 @@ class Pcm:
                     print (f"Fw Version = {strFwVersion}")
                     print (f"Fw Date = {strFwDate}\n")
 
-    def send_command(self, cmd=""):
+    # def send_command(self, cmd=""):
 
-        if (self.nDeviceCount > 0) :
-            # --- Start main loop to accept user commands ---
-            if 'L' in self.picomotor_map or 'R' in self.picomotor_map:
-                print("\n--- Picomotor Control Interface ---")
-                print("Enter a command (e.g., 'L3PR1000' or 'RREL-500').")
-                print("The first character (L/R) selects the motor, the rest is the command.")
-                print("Type 'Q' or 'QUIT' to exit.")
+    #     if (self.nDeviceCount > 0) :
+    #         # --- Start main loop to accept user commands ---
+    #         if 'L' in self.picomotor_map or 'R' in self.picomotor_map:
+    #             print("\n--- Picomotor Control Interface ---")
+    #             print("Enter a command (e.g., 'L3PR1000' or 'RREL-500').")
+    #             print("The first character (L/R) selects the motor, the rest is the command.")
+    #             print("Type 'Q' or 'QUIT' to exit.")
                 
-                while True:
-                    try:
-                        # Note: 'input()' is for Python 3. For Python 2, use 'raw_input()'.
-                        user_input = input("Command (L/R + Cmd): ").strip()
+    #             while True:
+    #                 try:
+    #                     # Note: 'input()' is for Python 3. For Python 2, use 'raw_input()'.
+    #                     user_input = input("Command (L/R + Cmd): ").strip()
                         
-                        if not user_input:
-                            continue
+    #                     if not user_input:
+    #                         continue
 
-                        if user_input.upper() in ["Q", "QUIT"]:
-                            print("Exiting command loop...")
-                            break
+    #                     if user_input.upper() in ["Q", "QUIT"]:
+    #                         print("Exiting command loop...")
+    #                         break
                         
-                        if len(user_input) < 2:
-                            print("Error: Command too short. Format is [L/R][Command]")
-                            continue
+    #                     if len(user_input) < 2:
+    #                         print("Error: Command too short. Format is [L/R][Command]")
+    #                         continue
 
-                        # The first character is the target ('L' or 'R')
-                        target_key = user_input[0].upper()
-                        # The rest is the command string
-                        command = user_input[1:]
+    #                     # The first character is the target ('L' or 'R')
+    #                     target_key = user_input[0].upper()
+    #                     # The rest is the command string
+    #                     command = user_input[1:]
                         
-                        if target_key in self.picomotor_map:
-                            device_key_to_use = self.picomotor_map[target_key]
+    #                     if target_key in self.picomotor_map:
+    #                         device_key_to_use = self.picomotor_map[target_key]
                             
-                            print(f"Sending command '{command}' to device '{target_key}' ({device_key_to_use})...")
+    #                         print(f"Sending command '{command}' to device '{target_key}' ({device_key_to_use})...")
                             
-                            # Send the command using deviceIO.Query
-                            self.strBldr.Remove (0, self.strBldr.Length)
-                            # For a simple command (like a move command), deviceIO.Write may be used,
-                            # but Query allows for command confirmation or error messages.
-                            nReturn = self.deviceIO.Query (device_key_to_use, command, self.strBldr)
+    #                         # Send the command using deviceIO.Query
+    #                         self.strBldr.Remove (0, self.strBldr.Length)
+    #                         # For a simple command (like a move command), deviceIO.Write may be used,
+    #                         # but Query allows for command confirmation or error messages.
+    #                         nReturn = self.deviceIO.Query (device_key_to_use, command, self.strBldr)
                             
-                            print (f"Return Status = {self.nReturn}")
-                            print (f"Response = {self.strBldr.ToString ()}\n")
+    #                         print (f"Return Status = {self.nReturn}")
+    #                         print (f"Response = {self.strBldr.ToString ()}\n")
                             
-                        else:
-                            print(f"Error: Invalid target key '{target_key}'. Available keys: {', '.join(self.picomotor_map.keys())}.")
+    #                     else:
+    #                         print(f"Error: Invalid target key '{target_key}'. Available keys: {', '.join(self.picomotor_map.keys())}.")
                             
-                    except EOFError:
-                        print("\nEOF received. Exiting loop...")
-                        break
-                    except Exception as e:
-                        print(f"An error occurred in the command loop: {e}")
-                        time.sleep(0.1) # Prevents fast looping on repeated errors
+    #                 except EOFError:
+    #                     print("\nEOF received. Exiting loop...")
+    #                     break
+    #                 except Exception as e:
+    #                     print(f"An error occurred in the command loop: {e}")
+    #                     time.sleep(0.1) # Prevents fast looping on repeated errors
                         
-            else:
-                print ("No target devices ('105969' or '105970') were discovered and mapped for control.\n")
+    #         else:
+    #             print ("No target devices ('105969' or '105970') were discovered and mapped for control.\n")
             
-        else :
-            print ("no device to operate.\n")
+    #     else :
+    #         print ("no device to operate.\n")
+
+
+    def send_command(self, user_input=""):
+        """
+        Modified to accept a single command string from the main logic
+        instead of running its own infinite loop.
+        """
+        if self.nDeviceCount <= 0:
+            print("No PCM devices found.")
+            return
+
+        user_input = user_input.strip()
+        if not user_input or len(user_input) < 2:
+            print("Error: Command format is [L/R][Command] (e.g., L3PR1000)")
+            return
+
+        # The first character is the target ('L' or 'R')
+        target_key = user_input[0].upper()
+        command = user_input[1:]
+
+        if target_key in self.picomotor_map:
+            device_key_to_use = self.picomotor_map[target_key]
+            
+            # Clear string builder and send query
+            self.strBldr.Remove(0, self.strBldr.Length)
+            status = self.deviceIO.Query(device_key_to_use, command, self.strBldr)
+            
+            print(f"[PCM] Target: {target_key} | Status: {status} | Response: {self.strBldr.ToString()}")
+        else:
+            print(f"Error: Invalid PCM target '{target_key}'. Use L or R.")
 
     def close_connection(self):
         print("Shutting down and closing all open devices...")
         for key in self.open_device_keys:
-            self.nReturn = self.deviceIO.Close (key)
+            self.nReturn = self.deviceIO.close_usb_connection(key)
             print(f"Closed device {key}. Status: {nReturn}")
         # Shut down all communication
         self.cmdLib8742.Shutdown ()

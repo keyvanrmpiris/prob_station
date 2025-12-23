@@ -29,6 +29,7 @@ class Rigol:
         self.keep_running = False # Flag for the loop
         self.scale = 1
         self.offset = 0
+        self.status_string = None
 
     def connect(self):
         try:
@@ -38,7 +39,7 @@ class Rigol:
         except pyvisa.errors.VisaIOError as e:
             print(f"VISA Error: {e}")
 
-    def set_vertical_scale(self, channel=1, volts_per_div=10):
+    def set_vertical_scale(self, channel=1, volts_per_div=0.1):
         """
         Sets the vertical scale for a specific channel.
         To see a 5V peak-to-peak signal clearly 1v (1V) is recommended.
@@ -84,8 +85,9 @@ class Rigol:
                 # Format the output: 
                 # :.4f keeps it to 4 decimal places
                 # <20 pads the string to 20 characters so it overwrites old text
-                output = f"Vpp Ch1 Avg: {vpp_value:.4f} V __" + vertical_params_print
-                print(f"\r{output:<30}", end='', flush=True)
+                output = f" [LIVE] Vpp: {true_val:.4f} V | {vertical_params_print}"
+                
+                self.status_string = output
                 
                 time.sleep(0.05)
             except Exception as e:
@@ -107,22 +109,45 @@ class Rigol:
             print(f"Error reading trigger source: {e}")
             return None
 
-    def monitor_measurements(self):
-        """Starts the 50ms read loop and waits for user input to stop."""
-        self.keep_running = True
+    def get_status(self):
+        """Helper to safely get the string"""
+        return getattr(self, 'status_string', "Initializing...")
         
-        # Start the background thread
-        thread = threading.Thread(target=self._loop_logic)
-        thread.daemon = True
-        thread.start()
+    # def monitor_measurements(self):
+    #     """Starts the 50ms read loop and waits for user input to stop."""
+    #     self.keep_running = True
+        
+    #     # Start the background thread
+    #     thread = threading.Thread(target=self._loop_logic)
+    #     thread.daemon = True
+    #     thread.start()
 
-        # Block the main thread here until user presses Enter
-        input() 
+    #     # Block the main thread here until user presses Enter
+    #     input() 
         
-        # Signal the thread to stop
+    #     # Signal the thread to stop
+    #     self.keep_running = False
+    #     thread.join()
+    #     print("\nMonitoring stopped.")
+
+    def monitor_measurements(self):
+        """Starts the background loop and returns control to the main program immediately."""
+        if not hasattr(self, 'keep_running') or not self.keep_running:
+            self.keep_running = True
+            # We store the thread as an attribute (self.thread) so we can join it later
+            self.thread = threading.Thread(target=self._loop_logic)
+            self.thread.daemon = True
+            self.thread.start()
+            print("\n[Rigol] Background monitoring active.")
+        else:
+            print("\n[Rigol] Monitoring is already running.")
+
+    def stop_monitoring(self):
+        """Properly shuts down the background thread."""
         self.keep_running = False
-        thread.join()
-        print("\nMonitoring stopped.")
+        if hasattr(self, 'thread'):
+            self.thread.join(timeout=1.0)
+            print("\n[Rigol] Monitoring stopped.")
 
     def disconnect(self):
         if self.scope:
