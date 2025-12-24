@@ -29,7 +29,6 @@ class Rigol:
         self.keep_running = False # Flag for the loop
         self.scale = 1
         self.offset = 0
-        self.status_string = None
 
     def connect(self):
         try:
@@ -85,9 +84,8 @@ class Rigol:
                 # Format the output: 
                 # :.4f keeps it to 4 decimal places
                 # <20 pads the string to 20 characters so it overwrites old text
-                output = f" [LIVE] Vpp: {true_val:.4f} V | {vertical_params_print}"
-                
-                self.status_string = output
+                output = f"Vpp Ch1 Avg: {vpp_value:.4f} V __" + vertical_params_print
+                print(f"\r{output:<30}", end='', flush=True)
                 
                 time.sleep(0.05)
             except Exception as e:
@@ -109,10 +107,6 @@ class Rigol:
             print(f"Error reading trigger source: {e}")
             return None
 
-    def get_status(self):
-        """Helper to safely get the string"""
-        return getattr(self, 'status_string', "Initializing...")
-        
     # def monitor_measurements(self):
     #     """Starts the 50ms read loop and waits for user input to stop."""
     #     self.keep_running = True

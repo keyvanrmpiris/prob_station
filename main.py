@@ -8,10 +8,6 @@ from drivers.connexcc_driver import Conexcc
 from drivers.rigol_driver import Rigol
 from drivers.pcm_driver import Pcm
 def main():
-    with open('config/instruments.yaml', 'r') as f:
-        config = yaml.safe_load(f)
-
-    ######Laser######
     
 
     # laser = Laser()
@@ -19,6 +15,35 @@ def main():
     # reply= laser.instrument.query_idn()
     # print(f"\nCONNECTION SUCCESSFUL — Laser replied: {reply}")
     # laser.instrument_menu()
+    # input ("waiting for the laser")
+
+
+    # try:
+    #     print("1. Instantiating Laser...")
+    #     laser = Laser()
+        
+    #     print("2. Connecting to Laser...")
+    #     laser.connect()
+        
+    #     print("3. Querying IDN (Sending command)...")
+    #     # This is the most likely crash point based on your logs
+    #     reply = laser.instrument.query_idn() 
+        
+    #     print(f"4. IDN Received: {reply}")
+    #     print(f"\nCONNECTION SUCCESSFUL — Laser replied: {reply}")
+        
+    #     print("5. Opening Menu...")
+    #     laser.instrument_menu()
+        
+    #     print("6. Waiting for input...")
+    #     input("waiting for the laser")
+        
+    # except Exception as e:
+    #     print("\n!!!!!!!! ERROR CAUGHT !!!!!!!!")
+    #     print(f"Error Type: {type(e).__name__}")
+    #     print(f"Error Message: {e}")
+    #     traceback.print_exc()
+        
 
     ######pcm########
     # pcm = Pcm()
@@ -91,73 +116,75 @@ def main():
     # rgl.disconnect()
     # laser.instrument.close_connection()
 
-    # --- Setup ---
+    # # Initialize
+    # rgl = Rigol()
+    # laser = Laser()
+    # conex = Conexcc()
+    # pcm = Pcm()
+
+    # # Connections
+    # rgl.connect()
+    # laser.connect()
+    # pcm.connect()
+    # conex.connect()
+
+    # 1. Initialize all drivers
     laser = Laser()
     rgl = Rigol()
     pcm = Pcm()
-    conex = Conexcc()
+    conex = Conexcc() # Assuming you use this for other motors
 
+    # 2. Connect Hardware
     laser.connect()
     pcm.connect()
     conex.connect()
     rgl.connect()
 
-    # Start the silent background thread
-    rgl.monitor_measurements()
+    # 3. Start Rigol Background Monitoring (Non-blocking)
+    rgl.monitor_measurements() 
 
-    print("\n" + "="*40)
-    print("  SYSTEM READY")
-    print("  Press ENTER to pause monitoring and type a command.")
-    print("="*40)
+    print("\n" + "="*30)
+    print("  SYSTEM READY - CONTINUOUS MONITORING ACTIVE")
+    print("="*30)
+    print("Commands:")
+    print("  l [val]  -> Set Laser Power")
+    print("  c [pos]  -> Move Conex Motor")
+    print("  p [cmd]  -> PCM Command (e.g., 'p L3PR1000')")
+    print("  q        -> Quit")
 
     try:
         while True:
-            # --- MODE 1: MONITORING ---
-            # Loop here until the user hits a key
-            print("\n") # formatting spacer
-            while not msvcrt.kbhit():
-                # Print the Rigol status over and over on the same line
-                # The 50 spaces ensure we wipe out old text
-                print(f"\r{rgl.get_status()} {' '*20}", end='', flush=True)
-                time.sleep(0.1)
-
-            # --- MODE 2: COMMAND ENTRY ---
-            # If we get here, a key was pressed!
-            # Clear the keyboard buffer (consume the keypress)
-            msvcrt.getch() 
+            # We use a space-split to separate command type from value
+            # Example: "l 10" or "p RREL500"
+            raw = input("\n>> ").strip().split(maxsplit=1)
+            if not raw: continue
             
-            # Now we can use normal input() because we stopped the printing loop above
-            print("\n\n--- PAUSED: Enter Command (l/c/p/q) ---")
-            raw = input(">> ").strip().split(maxsplit=1)
-
-            if not raw: continue # If they just hit enter, go back to monitoring
-
             action = raw[0].lower()
             arg = raw[1] if len(raw) > 1 else ""
 
             if action == 'l':
                 laser.instrument.write(f"{arg}")
-                print(f"Laser send command {arg} to the laser")
-            
+                print(f"Laser power set to {arg}")
+
             elif action == 'c':
-                conex.send_command(f"PA{arg}", 0)
+                conex.send_command(f"{arg}", 0)
                 print(f"Conex moving to {arg}")
 
             elif action == 'p':
+                # Pass the command directly to our new PCM method
                 pcm.send_command(arg)
 
             elif action == 'q':
                 break
-            
-            input("press enter to continue)")
-            print("Resuming monitoring...", end='')
-            time.sleep(1) # Give user a second to read the confirmation
 
+    except KeyboardInterrupt:
+        pass
     finally:
+        print("\nShutting down...")
         rgl.stop_monitoring()
-        rgl.disconnect()
+        # pcm.close_connection()
         laser.instrument.close_connection()
-        pcm.close_connection()
+        rgl.disconnect()
 
 if __name__=="__main__":
     main()

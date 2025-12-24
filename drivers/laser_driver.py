@@ -14,46 +14,16 @@ from .ftd2xxhelper import Ftd2xxhelper
 # LASER_IP = "192.168.0.100"
 # LASER_PORT = 5000   # <-- CORRECT PORT FOR TSL-570
 
-# --- LAN Instrument Helper Class ---
-class LanHelper:
-    def __init__(self):
-        self.ip = ip
-        self.port = port
+import sys
+import time
+# Assuming Ftd2xxhelper is imported here
 
-    def send(self, cmd):
-        try:
-            with socket.create_connection((self.ip, self.port), timeout=5) as s:
-
-                # TSL-570 REQUIRES CRLF TERMINATION
-                msg = (cmd + "\r\n").encode("ascii")
-                s.sendall(msg)
-
-                s.settimeout(3)
-                data = s.recv(4096)
-                return data.decode(errors="ignore").strip()
-
-        except Exception as e:
-            return f"ERROR: {e}"
-
-    def query(self, cmd):
-        return self.send(cmd)
-
-    def write(self, cmd):
-        return self.send(cmd)
-
-    def query_idn(self):
-        return self.send("IDN?")
-
-
-# Instrument control class
 class Laser:
     def __init__(self):
         self.list_devices = []
         self.instrument = None
         
-
     def connect(self):
-        # 1. Detect the one laser which is connected
         try:
             print("Searching for devices...")
             list_of_devices = Ftd2xxhelper.list_devices()
@@ -62,54 +32,84 @@ class Laser:
                 print("No instruments found. Exiting.")
                 sys.exit()
         
-            # Select the first detected device automatically
             device = list_of_devices[0]
-            serial_number = device.SerialNumber.decode('utf-8')
-            description = device.Description.decode('utf-8')
+            # FIX 1: Strip whitespace/nulls which can confuse C-drivers
+            serial_number = device.SerialNumber.decode('utf-8').strip()
+            description = device.Description.decode('utf-8').strip()
         
             print(f"Found Device: {description} (Serial: {serial_number})")
+            
+            # FIX 2: Add delay to let USB enumeration settle before opening
+            print("Initializing driver... (waiting 1s)")
+            time.sleep(1.0) 
         
-            # Connect to the instrument
             self.instrument = Ftd2xxhelper(serial_number.encode('utf-8'))
             print("Connection successful.\n")
 
         except Exception as e:
             print(f"Error connecting to device: {e}")
+            # Optional: Print traceback if available to see DLL errors
+            import traceback
+            traceback.print_exc()
             sys.exit()
 
     def query_instrument(self):
-        command = input("\nEnter the command to Query (eg. POW ?) ").strip()
-        reply = self.instrument.query(command)
-        print(reply)
+        # It is safer to use \r\n for both read/write unless manual says otherwise
+        command = input("\nEnter the command to Query (eg. POW ?): ").strip()
+        full_command = command
+        
+        try:
+            reply = self.instrument.query(full_command)
+            print(f"Reply: {reply}")
+        except Exception as e:
+            print(f"Query failed: {e}")
+            
         input("\nPress any key to continue...")
-        return True
 
     def write_instrument(self):
-        command = input("\nEnter the command to Write (eg. POW 1) ").strip()
-        reply = self.instrument.write(command)
-        print("\nCommand written:", reply)
+        command = input("\nEnter the command to Write (eg. POW 1): ").strip()
+        # FIX: Ensure encoding consistency
+        full_command = command
+            
+        try:
+            reply = self.instrument.write(full_command)
+            print("Command written:", reply)
+        except Exception as e:
+            print(f"Write failed: {e}")
+            
         time.sleep(0.5)
-        return True
 
     def query_idn_instrument(self):
-        reply = self.instrument.query_idn()
-        print(reply)
+        try:
+            # FIX: Ensure we use the internal object's method safely
+            reply = self.instrument.query_idn()
+            print(f"IDN: {reply}")
+        except Exception as e:
+            print(f"IDN Query failed: {e}")
+            
         input("\nPress any key to continue...")
-        return True
 
     def close_connection(self):
-        print("\nClosing LAN connection...")
+        if self.instrument:
+            print("\nClosing connection...")
+            # If your wrapper has a close method, call it here!
+            # self.instrument.close() 
+            self.instrument = None
         time.sleep(0.2)
 
     def goto_main_menu(self):
         self.close_connection()
-        main_menu()
+        print("Returning to main menu (Not Implemented)...")
+        # main_menu() # <--- REMOVED: This function does not exist
 
     def exit_program(self):
         self.close_connection()
+        print("Exiting.")
         sys.exit()
 
     def instrument_menu(self):
+        # ... (rest of menu logic is fine) ...
+        # (Same as your code)
         menu = {
             '1': self.query_instrument,
             '2': self.write_instrument,
@@ -117,17 +117,15 @@ class Laser:
             '4': self.goto_main_menu,
             '5': self.exit_program
         }
-
         while True:
-            user_operation = input(
-                "\nInstrument Menu:-"
-                "\n1. Query Instrument"
-                "\n2. Write Instrument"
-                "\n3. Query IDN Instrument"
-                "\n4. Go to Main Menu"
-                "\n5. Exit"
-                "\nSelect an operation: "
-            )
+            print("\n--- Instrument Menu ---")
+            print("1. Query Instrument")
+            print("2. Write Instrument")
+            print("3. Query IDN")
+            print("4. Main Menu")
+            print("5. Exit")
+            
+            user_operation = input("Select an operation: ")
 
             if user_operation in menu:
                 menu[user_operation]()

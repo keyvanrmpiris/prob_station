@@ -199,7 +199,7 @@ class Pcm:
     def close_connection(self):
         print("Shutting down and closing all open devices...")
         for key in self.open_device_keys:
-            self.nReturn = self.deviceIO.close_usb_connection(key)
+            self.nReturn = self.deviceIO.close_connection(key)
             print(f"Closed device {key}. Status: {nReturn}")
         # Shut down all communication
         self.cmdLib8742.Shutdown ()
